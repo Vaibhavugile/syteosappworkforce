@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "560294573240",
+    "project_id": "syteos-labs",
+    "storage_bucket": "syteos-labs.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:560294573240:android:7f4c648bd25144daf2704d",
+        "android_client_info": {
+          "package_name": "com.example.syteos_business"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAzF_XHOzP11cLojGYW2qwkwA_Yh4GYbBg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
