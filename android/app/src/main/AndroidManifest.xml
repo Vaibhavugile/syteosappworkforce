@@ -1,21 +1,58 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Internet access for Firebase + Google Places API -->
+    <!-- ============================================================
+         NETWORK
+         ============================================================ -->
+
+    <!-- Internet access for Firebase + Google Places API + Google Maps -->
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- Location permissions -->
+
+    <!-- ============================================================
+         LOCATION
+         ============================================================ -->
+
+    <!-- Required for nearby Google Places and current location -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+
+    <!-- Fallback / approximate location -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
 
     <!-- GPS/location hardware is optional -->
     <uses-feature
         android:name="android.hardware.location.gps"
         android:required="false" />
 
+
+    <!-- ============================================================
+         APPLICATION
+         ============================================================ -->
+
     <application
         android:label="syteos_business"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+
+
+        <!-- ========================================================
+             GOOGLE MAPS
+             ======================================================== -->
+
+        <!--
+             Google Maps Android API key.
+
+             MAPS_API_KEY will be supplied through Gradle.
+             Do NOT put the actual API key directly here.
+        -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyAsHkvRLLcGhLuVLeFTK0nKP71Uk2CI2oY" />
+
+
+        <!-- ========================================================
+             MAIN FLUTTER ACTIVITY
+             ======================================================== -->
 
         <activity
             android:name=".MainActivity"
@@ -27,32 +64,53 @@
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
 
+
             <!-- Flutter launch theme -->
             <meta-data
                 android:name="io.flutter.embedding.android.NormalTheme"
                 android:resource="@style/NormalTheme" />
 
+
             <!-- App launcher -->
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+
+                <action
+                    android:name="android.intent.action.MAIN" />
+
+                <category
+                    android:name="android.intent.category.LAUNCHER" />
+
             </intent-filter>
 
         </activity>
 
-        <!-- Flutter embedding -->
+
+        <!-- ========================================================
+             FLUTTER EMBEDDING
+             ======================================================== -->
+
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
 
     </application>
 
+
+    <!-- ============================================================
+         QUERY INTENTS
+         ============================================================ -->
+
     <!-- Required for Flutter text-processing intents -->
     <queries>
 
         <intent>
-            <action android:name="android.intent.action.PROCESS_TEXT" />
-            <data android:mimeType="text/plain" />
+
+            <action
+                android:name="android.intent.action.PROCESS_TEXT" />
+
+            <data
+                android:mimeType="text/plain" />
+
         </intent>
 
     </queries>

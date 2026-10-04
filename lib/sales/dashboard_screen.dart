@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'history/daily_history_screen.dart';
 import 'visits/visits_screen.dart';
 
 class SalesDashboardScreen extends StatefulWidget {
@@ -34,6 +35,14 @@ class _SalesDashboardScreenState
     setState(() {
       _selectedIndex = 3;
     });
+  }
+
+  void _openDailyHistory() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const DailyHistoryScreen(),
+      ),
+    );
   }
 
   void _showComingSoon(String title) {
@@ -679,53 +688,23 @@ class _SalesDashboardScreenState
   // ============================================================
 
   Widget _buildQuickActions() {
-    return Row(
-      children: [
-        Expanded(
-          child: _quickAction(
-            icon: Icons.person_add_alt_1_outlined,
-            title: 'Add Lead',
-            onTap: () {
-              _showComingSoon('Lead creation');
-            },
-          ),
-        ),
-
-        const SizedBox(width: 10),
-
-        Expanded(
-          child: _quickAction(
-            icon: Icons.location_on_outlined,
-            title: 'Add Visit',
-            onTap: _openVisits,
-            highlighted: true,
-          ),
-        ),
-
-        const SizedBox(width: 10),
-
-        Expanded(
-          child: _quickAction(
-            icon: Icons.phone_outlined,
-            title: 'Log Call',
-            onTap: () {
-              _showComingSoon('Call logging');
-            },
-          ),
-        ),
-
-        const SizedBox(width: 10),
-
-        Expanded(
-          child: _quickAction(
-            icon: Icons.schedule_outlined,
-            title: 'Follow-up',
-            onTap: () {
-              _showComingSoon('Follow-up creation');
-            },
-          ),
-        ),
-      ],
+    return SizedBox(
+      height: 102,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        children: [
+          SizedBox(width: 82, child: _quickAction(icon: Icons.person_add_alt_1_outlined, title: 'Add Lead', onTap: () { _showComingSoon('Lead creation'); })),
+          const SizedBox(width: 10),
+          SizedBox(width: 82, child: _quickAction(icon: Icons.location_on_outlined, title: 'Add Visit', onTap: _openVisits, highlighted: true)),
+          const SizedBox(width: 10),
+          SizedBox(width: 82, child: _quickAction(icon: Icons.phone_outlined, title: 'Log Call', onTap: () { _showComingSoon('Call logging'); })),
+          const SizedBox(width: 10),
+          SizedBox(width: 82, child: _quickAction(icon: Icons.schedule_outlined, title: 'Follow-up', onTap: () { _showComingSoon('Follow-up creation'); })),
+          const SizedBox(width: 10),
+          SizedBox(width: 82, child: _quickAction(icon: Icons.timeline_rounded, title: 'History', onTap: _openDailyHistory, highlighted: true)),
+        ],
+      ),
     );
   }
 
@@ -1209,6 +1188,16 @@ class _SalesDashboardScreenState
             onTap: () {
               _showComingSoon('Follow-ups');
             },
+          ),
+
+          const SizedBox(height: 10),
+
+          _moreTile(
+            icon: Icons.timeline_rounded,
+            title: 'Daily History',
+            subtitle:
+                'Review your activity timeline and visit route',
+            onTap: _openDailyHistory,
           ),
 
           const SizedBox(height: 10),
