@@ -4,9 +4,11 @@ import 'package:google_fonts/google_fonts.dart';
 
 
 
+import '../../../models/app_user.dart';
 import '../../../models/project.dart';
 
 import '../../../services/project_service.dart';
+import '../../../services/team_service.dart';
 import 'create_project_screen.dart';
 import 'project_details_screen.dart';
 
@@ -29,6 +31,12 @@ class ProjectsScreen extends StatefulWidget {
 class _ProjectsScreenState extends State<ProjectsScreen> {
 
   final ProjectService _projectService = ProjectService.instance;
+  final TeamService _teamService = TeamService.instance;
+
+  AppUser? _currentUser;
+  bool _loadingUser = true;
+
+  bool get _isManagement => _currentUser?.isManagement ?? false;
 
   final TextEditingController _searchController =
 
@@ -238,7 +246,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
 
       title: Text(
 
-        'Projects',
+        _isManagement ? 'Projects' : 'My Projects',
 
         style: GoogleFonts.manrope(
 
@@ -1956,7 +1964,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
 
         case 'hold':
 
-          await _projectService.holdProject(
+          await _projectService.putProjectOnHold(
 
             project.projectId,
 
@@ -2028,21 +2036,13 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
 
 
 
-  Future<void> _openProject(Project project) async {
+  void _openProject(Project project) {
 
-    await Navigator.of(context).push(
+    // Project details screen will be connected
 
-      MaterialPageRoute(
+    // in the next step.
 
-        builder: (_) => ProjectDetailsScreen(
-
-          projectId: project.projectId,
-
-        ),
-
-      ),
-
-    );
+    _showProjectPreview(project);
 
   }
 
@@ -2410,11 +2410,11 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
 
                     child: OutlinedButton.icon(
 
-                      onPressed: () async {
+                      onPressed: () {
 
-                        Navigator.of(context).pop();
+                        Navigator.of(context)
 
-                        await _openProject(project);
+                            .pop();
 
                       },
 
@@ -2821,40 +2821,82 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
 
 
   Widget _buildFloatingActionButton() {
-  return FloatingActionButton.extended(
-    onPressed: _createProject,
-    backgroundColor: const Color(0xFF4F46E5),
-    foregroundColor: Colors.white,
-    elevation: 5,
-    icon: const Icon(
-      Icons.add_rounded,
-    ),
-    label: Text(
-      'New Project',
-      style: GoogleFonts.manrope(
-        fontSize: 12,
-        fontWeight: FontWeight.w800,
+
+    return FloatingActionButton.extended(
+
+      onPressed: _createProjectPlaceholder,
+
+      backgroundColor: const Color(0xFF4F46E5),
+
+      foregroundColor: Colors.white,
+
+      elevation: 5,
+
+      icon: const Icon(
+
+        Icons.add_rounded,
+
       ),
-    ),
-  );
-}
 
+      label: Text(
 
-Future<void> _createProject() async {
-  final projectId = await Navigator.of(context).push<String>(
-    MaterialPageRoute(
-      builder: (_) => const CreateProjectScreen(),
-    ),
-  );
+        'New Project',
 
-  if (!mounted) return;
+        style: GoogleFonts.manrope(
 
-  if (projectId != null && projectId.isNotEmpty) {
-    _showSnack(
-      'Project created successfully.',
+          fontSize: 12,
+
+          fontWeight: FontWeight.w800,
+
+        ),
+
+      ),
+
     );
+
   }
-}
+
+
+
+  void _createProjectPlaceholder() {
+
+    ScaffoldMessenger.of(context).showSnackBar(
+
+      SnackBar(
+
+        behavior: SnackBarBehavior.floating,
+
+        backgroundColor:
+
+            const Color(0xFF111827),
+
+        shape: RoundedRectangleBorder(
+
+          borderRadius: BorderRadius.circular(12),
+
+        ),
+
+        content: Text(
+
+          'Project creation screen is coming next.',
+
+          style: GoogleFonts.manrope(
+
+            fontSize: 12,
+
+            fontWeight: FontWeight.w700,
+
+            color: Colors.white,
+
+          ),
+
+        ),
+
+      ),
+
+    );
+
+  }
 
 
 

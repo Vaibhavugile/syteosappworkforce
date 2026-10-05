@@ -3,6 +3,7 @@
 
 
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 
 
@@ -35,6 +36,8 @@ import '../../services/task_service.dart';
 
 
 import '../../services/team_service.dart';
+import '../../auth/login_screen.dart';
+import '../../auth/services/auth_service.dart';
 
 
 
@@ -55,6 +58,7 @@ import '../../team/my_work/screens/my_work_screen.dart';
 import '../../team/daily_work/screens/daily_work_screen.dart';
 
 import '../../team/daily_work/screens/team_daily_work_screen.dart';
+import '../../team/daily_work/screens/my_daily_work_history_screen.dart';
 
 
 
@@ -571,6 +575,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
 
             size: 22,
+
+
+
+          ),
+
+
+
+        ),
+
+
+
+        IconButton(
+
+
+
+          tooltip: 'Logout',
+
+
+
+          onPressed: _logout,
+
+
+
+          icon: const Icon(
+
+
+
+            Icons.logout_rounded,
+
+
+
+            color: _red,
+
+
+
+            size: 21,
 
 
 
@@ -1236,6 +1276,63 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   }
 
+
+
+  Widget _buildTeamMemberActionBar() {
+    final actions = <_DashboardAction>[
+      _DashboardAction(
+        'My Tasks',
+        'Assigned tasks',
+        Icons.task_alt_rounded,
+        _primary,
+        _openMyWork,
+      ),
+      _DashboardAction(
+        'My Projects',
+        'Assigned projects',
+        Icons.folder_copy_outlined,
+        _blue,
+        _openProjects,
+      ),
+      _DashboardAction(
+        'Daily Work',
+        "Add today's work",
+        Icons.work_history_outlined,
+        _purple,
+        _openDailyWork,
+      ),
+      _DashboardAction(
+        'My Daily Work',
+        'View submitted work',
+        Icons.history_rounded,
+        _green,
+        _openMyDailyWorkHistory,
+      ),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle(
+          'My workspace',
+          'Everything assigned to you, plus your daily work history.',
+        ),
+        const SizedBox(height: 12),
+        GridView.builder(
+          itemCount: actions.length,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            childAspectRatio: 2.05,
+          ),
+          itemBuilder: (_, index) => _actionCard(actions[index]),
+        ),
+      ],
+    );
+  }
 
 
   Widget _buildTeamMemberDailyWorkAction() {
@@ -3545,190 +3642,59 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
 
   Widget _buildQuickActions() {
-
-
-
     final actions = <_DashboardAction>[
-
-
-
       _DashboardAction(
-
-
-
-        'My Work',
-
-
-
+        _isManagement ? 'My Work' : 'My Tasks',
         'Tasks & deadlines',
-
-
-
         Icons.task_alt_rounded,
-
-
-
         _primary,
-
-
-
         _openMyWork,
-
-
-
       ),
-
-
-
       _DashboardAction(
-
-
-
         'Projects',
-
-
-
-        'Project workspace',
-
-
-
+        _isManagement ? 'Project workspace' : 'Assigned projects',
         Icons.folder_copy_outlined,
-
-
-
         _blue,
-
-
-
         _openProjects,
-
-
-
       ),
-
-
-
       if (_isManagement)
-
-
-
         _DashboardAction(
-
-
-
           'Team',
-
-
-
           'Employees',
-
-
-
           Icons.groups_2_outlined,
-
-
-
           _purple,
-
-
-
           _openTeam,
-
-
-
         ),
-
-
-
       _DashboardAction(
-
         'Daily Work',
-
-        _isManagement ? 'Employee work' : "Submit today's work",
-
+        _isManagement ? 'Employee work' : "Add today's work",
         Icons.work_history_outlined,
-
         _purple,
-
         _isManagement ? _openTeamDailyWork : _openDailyWork,
-
       ),
-
+      if (!_isManagement)
+        _DashboardAction(
+          'My Daily Work',
+          'Submitted work history',
+          Icons.history_rounded,
+          _green,
+          _openMyDailyWorkHistory,
+        ),
     ];
 
-
-
-
-
-
-
     return GridView.builder(
-
-
-
       itemCount: actions.length,
-
-
-
       shrinkWrap: true,
-
-
-
       physics: const NeverScrollableScrollPhysics(),
-
-
-
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-
-
-
         crossAxisCount: 2,
-
-
-
         crossAxisSpacing: 10,
-
-
-
         mainAxisSpacing: 10,
-
-
-
         childAspectRatio: 2.2,
-
-
-
       ),
-
-
-
-      itemBuilder: (_, index) {
-
-
-
-        final action = actions[index];
-
-
-
-        return _actionCard(action);
-
-
-
-      },
-
-
-
+      itemBuilder: (_, index) => _actionCard(actions[index]),
     );
-
-
-
   }
-
-
-
-
-
-
 
   Widget _buildSalesActions() {
 
@@ -7279,6 +7245,100 @@ class _DashboardScreenState extends State<DashboardScreen> {
         builder: (_) => const TeamDailyWorkScreen(),
 
       ),
+
+    );
+
+  }
+
+
+
+  Future<void> _openMyDailyWorkHistory() async {
+
+    await Navigator.of(context).push(
+
+      MaterialPageRoute(
+
+        builder: (_) => const MyDailyWorkHistoryScreen(),
+
+      ),
+
+    );
+
+  }
+
+
+
+  Future<void> _logout() async {
+
+    if (!mounted) return;
+
+
+
+    final confirmed = await showDialog<bool>(
+
+      context: context,
+
+      builder: (context) => AlertDialog(
+
+        title: const Text('Logout?'),
+
+        content: const Text('You will be signed out of this device.'),
+
+        actions: [
+
+          TextButton(
+
+            onPressed: () => Navigator.of(context).pop(false),
+
+            child: const Text('Cancel'),
+
+          ),
+
+          FilledButton(
+
+            onPressed: () => Navigator.of(context).pop(true),
+
+            child: const Text('Logout'),
+
+          ),
+
+        ],
+
+      ),
+
+    );
+
+
+
+    if (confirmed != true) return;
+
+
+
+    try {
+
+      await AuthService.instance.signOut();
+
+    } catch (_) {
+
+      await FirebaseAuth.instance.signOut();
+
+    }
+
+
+
+    if (!mounted) return;
+
+
+
+    Navigator.of(context).pushAndRemoveUntil(
+
+      MaterialPageRoute(
+
+        builder: (_) => const LoginScreen(),
+
+      ),
+
+      (route) => false,
 
     );
 
