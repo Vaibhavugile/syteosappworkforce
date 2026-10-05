@@ -3,7 +3,6 @@
 
 
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 
 
@@ -36,8 +35,6 @@ import '../../services/task_service.dart';
 
 
 import '../../services/team_service.dart';
-import '../../auth/login_screen.dart';
-import '../../auth/services/auth_service.dart';
 
 
 
@@ -58,7 +55,7 @@ import '../../team/my_work/screens/my_work_screen.dart';
 import '../../team/daily_work/screens/daily_work_screen.dart';
 
 import '../../team/daily_work/screens/team_daily_work_screen.dart';
-import '../../team/daily_work/screens/my_daily_work_history_screen.dart';
+import '../../attendance/screens/attendance_screen.dart';
 
 
 
@@ -586,42 +583,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
 
 
-        IconButton(
-
-
-
-          tooltip: 'Logout',
-
-
-
-          onPressed: _logout,
-
-
-
-          icon: const Icon(
-
-
-
-            Icons.logout_rounded,
-
-
-
-            color: _red,
-
-
-
-            size: 21,
-
-
-
-          ),
-
-
-
-        ),
-
-
-
         Padding(
 
 
@@ -1006,6 +967,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                 const SizedBox(height: 14),
 
+                _buildTeamMemberAttendanceAction(),
+
+                const SizedBox(height: 12),
+
                 _buildTeamMemberDailyWorkAction(),
 
                 const SizedBox(height: 18),
@@ -1278,61 +1243,148 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
 
 
-  Widget _buildTeamMemberActionBar() {
-    final actions = <_DashboardAction>[
-      _DashboardAction(
-        'My Tasks',
-        'Assigned tasks',
-        Icons.task_alt_rounded,
-        _primary,
-        _openMyWork,
-      ),
-      _DashboardAction(
-        'My Projects',
-        'Assigned projects',
-        Icons.folder_copy_outlined,
-        _blue,
-        _openProjects,
-      ),
-      _DashboardAction(
-        'Daily Work',
-        "Add today's work",
-        Icons.work_history_outlined,
-        _purple,
-        _openDailyWork,
-      ),
-      _DashboardAction(
-        'My Daily Work',
-        'View submitted work',
-        Icons.history_rounded,
-        _green,
-        _openMyDailyWorkHistory,
-      ),
-    ];
+  Widget _buildTeamMemberAttendanceAction() {
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionTitle(
-          'My workspace',
-          'Everything assigned to you, plus your daily work history.',
-        ),
-        const SizedBox(height: 12),
-        GridView.builder(
-          itemCount: actions.length,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            childAspectRatio: 2.05,
+    return Material(
+
+      color: Colors.white,
+
+      borderRadius: BorderRadius.circular(20),
+
+      child: InkWell(
+
+        onTap: _openAttendance,
+
+        borderRadius: BorderRadius.circular(20),
+
+        child: Container(
+
+          padding: const EdgeInsets.all(15),
+
+          decoration: BoxDecoration(
+
+            borderRadius: BorderRadius.circular(20),
+
+            border: Border.all(color: _border),
+
+            boxShadow: [
+
+              BoxShadow(
+
+                color: Colors.black.withOpacity(.025),
+
+                blurRadius: 16,
+
+                offset: const Offset(0, 5),
+
+              ),
+
+            ],
+
           ),
-          itemBuilder: (_, index) => _actionCard(actions[index]),
+
+          child: Row(
+
+            children: [
+
+              Container(
+
+                width: 44,
+
+                height: 44,
+
+                decoration: BoxDecoration(
+
+                  color: _green.withOpacity(.09),
+
+                  borderRadius: BorderRadius.circular(14),
+
+                ),
+
+                child: const Icon(
+
+                  Icons.access_time_filled_rounded,
+
+                  color: _green,
+
+                  size: 22,
+
+                ),
+
+              ),
+
+              const SizedBox(width: 12),
+
+              const Expanded(
+
+                child: Column(
+
+                  crossAxisAlignment: CrossAxisAlignment.start,
+
+                  children: [
+
+                    Text(
+
+                      'Attendance',
+
+                      style: TextStyle(
+
+                        color: _text,
+
+                        fontSize: 13,
+
+                        fontWeight: FontWeight.w900,
+
+                      ),
+
+                    ),
+
+                    SizedBox(height: 3),
+
+                    Text(
+
+                      'Check in & check out',
+
+                      style: TextStyle(
+
+                        color: _muted,
+
+                        fontSize: 10,
+
+                        fontWeight: FontWeight.w600,
+
+                      ),
+
+                    ),
+
+                  ],
+
+                ),
+
+              ),
+
+              const Icon(
+
+                Icons.arrow_forward_ios_rounded,
+
+                color: _muted,
+
+                size: 14,
+
+              ),
+
+            ],
+
+          ),
+
         ),
-      ],
+
+      ),
+
     );
+
   }
+
 
 
   Widget _buildTeamMemberDailyWorkAction() {
@@ -3642,59 +3694,204 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
 
   Widget _buildQuickActions() {
+
+
+
     final actions = <_DashboardAction>[
+
+
+
       _DashboardAction(
-        _isManagement ? 'My Work' : 'My Tasks',
+
+
+
+        'My Work',
+
+
+
         'Tasks & deadlines',
+
+
+
         Icons.task_alt_rounded,
+
+
+
         _primary,
+
+
+
         _openMyWork,
+
+
+
       ),
+
+
+
       _DashboardAction(
+
+
+
         'Projects',
-        _isManagement ? 'Project workspace' : 'Assigned projects',
+
+
+
+        'Project workspace',
+
+
+
         Icons.folder_copy_outlined,
+
+
+
         _blue,
+
+
+
         _openProjects,
+
+
+
       ),
+
+
+
       if (_isManagement)
+
+
+
         _DashboardAction(
+
+
+
           'Team',
+
+
+
           'Employees',
+
+
+
           Icons.groups_2_outlined,
+
+
+
           _purple,
+
+
+
           _openTeam,
+
+
+
         ),
+
+
+
       _DashboardAction(
+
         'Daily Work',
-        _isManagement ? 'Employee work' : "Add today's work",
+
+        _isManagement ? 'Employee work' : "Submit today's work",
+
         Icons.work_history_outlined,
+
         _purple,
+
         _isManagement ? _openTeamDailyWork : _openDailyWork,
+
       ),
-      if (!_isManagement)
-        _DashboardAction(
-          'My Daily Work',
-          'Submitted work history',
-          Icons.history_rounded,
-          _green,
-          _openMyDailyWorkHistory,
-        ),
+
+      _DashboardAction(
+
+        'Attendance',
+
+        'Check in & check out',
+
+        Icons.access_time_filled_rounded,
+
+        _green,
+
+        _openAttendance,
+
+      ),
+
     ];
 
+
+
+
+
+
+
     return GridView.builder(
+
+
+
       itemCount: actions.length,
+
+
+
       shrinkWrap: true,
+
+
+
       physics: const NeverScrollableScrollPhysics(),
+
+
+
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+
+
+
         crossAxisCount: 2,
+
+
+
         crossAxisSpacing: 10,
+
+
+
         mainAxisSpacing: 10,
+
+
+
         childAspectRatio: 2.2,
+
+
+
       ),
-      itemBuilder: (_, index) => _actionCard(actions[index]),
+
+
+
+      itemBuilder: (_, index) {
+
+
+
+        final action = actions[index];
+
+
+
+        return _actionCard(action);
+
+
+
+      },
+
+
+
     );
+
+
+
   }
+
+
+
+
+
+
 
   Widget _buildSalesActions() {
 
@@ -7156,6 +7353,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
 
 
+  void _openAttendance() {
+
+    Navigator.of(context).push(
+
+      MaterialPageRoute(
+
+        builder: (_) => const AttendanceScreen(),
+
+      ),
+
+    );
+
+  }
+
+
+
   void _openMyWork() {
 
 
@@ -7245,100 +7458,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         builder: (_) => const TeamDailyWorkScreen(),
 
       ),
-
-    );
-
-  }
-
-
-
-  Future<void> _openMyDailyWorkHistory() async {
-
-    await Navigator.of(context).push(
-
-      MaterialPageRoute(
-
-        builder: (_) => const MyDailyWorkHistoryScreen(),
-
-      ),
-
-    );
-
-  }
-
-
-
-  Future<void> _logout() async {
-
-    if (!mounted) return;
-
-
-
-    final confirmed = await showDialog<bool>(
-
-      context: context,
-
-      builder: (context) => AlertDialog(
-
-        title: const Text('Logout?'),
-
-        content: const Text('You will be signed out of this device.'),
-
-        actions: [
-
-          TextButton(
-
-            onPressed: () => Navigator.of(context).pop(false),
-
-            child: const Text('Cancel'),
-
-          ),
-
-          FilledButton(
-
-            onPressed: () => Navigator.of(context).pop(true),
-
-            child: const Text('Logout'),
-
-          ),
-
-        ],
-
-      ),
-
-    );
-
-
-
-    if (confirmed != true) return;
-
-
-
-    try {
-
-      await AuthService.instance.signOut();
-
-    } catch (_) {
-
-      await FirebaseAuth.instance.signOut();
-
-    }
-
-
-
-    if (!mounted) return;
-
-
-
-    Navigator.of(context).pushAndRemoveUntil(
-
-      MaterialPageRoute(
-
-        builder: (_) => const LoginScreen(),
-
-      ),
-
-      (route) => false,
 
     );
 
