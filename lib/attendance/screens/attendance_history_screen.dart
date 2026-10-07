@@ -1367,8 +1367,6 @@ class _AttendanceDetailsSheetState extends State<_AttendanceDetailsSheet> {
   @override
   Widget build(BuildContext context) {
     final record = widget.record;
-    final widget.employee = widget.employee;
-    final widget.isManagement = widget.isManagement;
     final date = _parseDate(widget.record.date);
     final hasCheckout = widget.record.checkOutAt != null;
 

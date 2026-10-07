@@ -730,6 +730,64 @@ class AttendanceService {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // ATTENDANCE HISTORY
+  // ---------------------------------------------------------------------------
+
+  Future<List<AttendanceRecord>> getMyAttendanceHistory({
+    required DateTime startDate,
+    required DateTime endDate,
+  }) async {
+    final userId = currentUserUid;
+    final start = dateKey(startDate);
+    final end = dateKey(endDate);
+
+    final snapshot = await _attendanceCollection
+        .where('userId', isEqualTo: userId)
+        .where('date', isGreaterThanOrEqualTo: start)
+        .where('date', isLessThanOrEqualTo: end)
+        .get();
+
+    final records = snapshot.docs
+        .map((doc) => AttendanceRecord.fromMap(doc.id, doc.data()))
+        .toList();
+
+    records.sort((a, b) {
+      final dateCompare = b.date.compareTo(a.date);
+      if (dateCompare != 0) return dateCompare;
+      return (b.checkInAt ?? DateTime(2000))
+          .compareTo(a.checkInAt ?? DateTime(2000));
+    });
+
+    return records;
+  }
+
+  Future<List<AttendanceRecord>> getAttendanceHistoryForManagement({
+    required DateTime startDate,
+    required DateTime endDate,
+  }) async {
+    final start = dateKey(startDate);
+    final end = dateKey(endDate);
+
+    final snapshot = await _attendanceCollection
+        .where('date', isGreaterThanOrEqualTo: start)
+        .where('date', isLessThanOrEqualTo: end)
+        .get();
+
+    final records = snapshot.docs
+        .map((doc) => AttendanceRecord.fromMap(doc.id, doc.data()))
+        .toList();
+
+    records.sort((a, b) {
+      final dateCompare = b.date.compareTo(a.date);
+      if (dateCompare != 0) return dateCompare;
+      return (b.checkInAt ?? DateTime(2000))
+          .compareTo(a.checkInAt ?? DateTime(2000));
+    });
+
+    return records;
+  }
+
   Future<List<AttendanceRecord>> getAttendanceForDateForManagement(
     DateTime date,
   ) async {

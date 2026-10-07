@@ -48,18 +48,18 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyAzF_XHOzP11cLojGYW2qwkwA_Yh4GYbBg',
-    appId: '1:560294573240:android:7f4c648bd25144daf2704d',
+    appId: '1:560294573240:android:a79e8df1f0199d05f2704d',
     messagingSenderId: '560294573240',
     projectId: 'syteos-labs',
     storageBucket: 'syteos-labs.firebasestorage.app',
   );
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyAMsjF_ioqkms7MFRdYYFeKrRlAm_xyoXc',
-    appId: '1:560294573240:ios:05cb902d7c1984e1f2704d',
+    appId: '1:560294573240:ios:6ee6727bc1108b5ef2704d',
     messagingSenderId: '560294573240',
     projectId: 'syteos-labs',
     storageBucket: 'syteos-labs.firebasestorage.app',
-    iosBundleId: 'com.example.syteosBusiness',
+    iosBundleId: 'com.syteoslabs.business',
   );
   static const FirebaseOptions web = FirebaseOptions(
     apiKey: 'AIzaSyAx6w8yBzSx3YkngERlbKJePkAp1Vt_cdQ',
