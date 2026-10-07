@@ -1,0 +1,13 @@
+{
+  "projects": {},
+  "targets": {
+    "syteos-labs": {
+      "hosting": {
+        "wedding": [
+          "syteos-wedding"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

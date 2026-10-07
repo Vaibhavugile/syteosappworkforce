@@ -22,6 +22,8 @@ class _CreateProjectScreenState
   final TeamService _teamService =
       TeamService.instance;
 
+  late final Stream<List<AppUser>> _employeesStream;
+
   final _formKey = GlobalKey<FormState>();
 
   final _nameController =
@@ -53,6 +55,14 @@ class _CreateProjectScreenState
   bool _saving = false;
 
   @override
+  void initState() {
+    super.initState();
+    // Keep the employee stream stable so typing in any TextField
+    // does not recreate the StreamBuilder and steal keyboard focus.
+    _employeesStream = _teamService.watchActiveEmployees();
+  }
+
+  @override
   void dispose() {
     _nameController.dispose();
     _clientController.dispose();
@@ -71,7 +81,7 @@ class _CreateProjectScreenState
       appBar: _buildAppBar(),
       body: SafeArea(
         child: StreamBuilder<List<AppUser>>(
-          stream: _teamService.watchActiveEmployees(),
+          stream: _employeesStream,
           builder: (context, snapshot) {
             if (snapshot.hasError) {
               return _buildError(

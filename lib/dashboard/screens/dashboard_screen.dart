@@ -5,11 +5,11 @@
 import 'package:flutter/material.dart';
 
 
-
+import '../../features/invitation_builder/screens/invitation_preview_test_screen.dart';
 import 'package:intl/intl.dart';
 
 
-
+import '../../features/invitation_builder/screens/invitation_builder_screen.dart';
 
 
 
@@ -3802,6 +3802,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _isManagement ? _openTeamDailyWork : _openDailyWork,
 
       ),
+      _DashboardAction(
+  'Wedding Invitation',
+  'Create & preview',
+  Icons.card_giftcard_rounded,
+  const Color(0xFFB8893C),
+  _openWeddingInvitation,
+),
 
       _DashboardAction(
 
@@ -7462,7 +7469,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
 
   }
-
+void _openWeddingInvitation() {
+  Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) =>
+          const InvitationBuilderScreen(),
+    ),
+  );
+}
 
 
   void _openTeam() {

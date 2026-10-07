@@ -17,10 +17,7 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      throw UnsupportedError(
-        'DefaultFirebaseOptions have not been configured for web - '
-        'you can reconfigure this by running the FlutterFire CLI again.',
-      );
+      return web;
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
@@ -56,7 +53,6 @@ class DefaultFirebaseOptions {
     projectId: 'syteos-labs',
     storageBucket: 'syteos-labs.firebasestorage.app',
   );
-
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyAMsjF_ioqkms7MFRdYYFeKrRlAm_xyoXc',
     appId: '1:560294573240:ios:05cb902d7c1984e1f2704d',
@@ -64,5 +60,14 @@ class DefaultFirebaseOptions {
     projectId: 'syteos-labs',
     storageBucket: 'syteos-labs.firebasestorage.app',
     iosBundleId: 'com.example.syteosBusiness',
+  );
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'AIzaSyAx6w8yBzSx3YkngERlbKJePkAp1Vt_cdQ',
+    appId: '1:560294573240:web:ed2d36157ed0f2a0f2704d',
+    messagingSenderId: '560294573240',
+    projectId: 'syteos-labs',
+    authDomain: 'syteos-labs.firebaseapp.com',
+    storageBucket: 'syteos-labs.firebasestorage.app',
+    measurementId: 'G-93N37SDV92',
   );
 }
