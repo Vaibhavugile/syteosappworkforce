@@ -15,8 +15,9 @@ import GoogleMaps
     // FIREBASE
     // ============================================================
 
-    FirebaseApp.configure()
-
+    if FirebaseApp.app() == nil {
+      FirebaseApp.configure()
+    }
 
     // ============================================================
     // GOOGLE MAPS
@@ -26,13 +27,11 @@ import GoogleMaps
       "AIzaSyAsHkvRLLcGhLuVLeFTK0nKP71Uk2CI2oY"
     )
 
-
     // ============================================================
     // FLUTTER PLUGINS
     // ============================================================
 
     GeneratedPluginRegistrant.register(with: self)
-
 
     // ============================================================
     // FINISH LAUNCH
