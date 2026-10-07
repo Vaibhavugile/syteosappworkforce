@@ -30,7 +30,7 @@
          ============================================================ -->
 
     <application
-        android:label="syteos_business"
+        android:label="SyteosLabs"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
 

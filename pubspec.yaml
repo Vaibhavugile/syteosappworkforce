@@ -1,6 +1,5 @@
 name: syteos_business
-description: "A new Flutter project."
-
+description: "Syteos Labs LLP - Internal Business Management App"
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -64,10 +63,17 @@ dev_dependencies:
 
   flutter_lints: ^6.0.0
 
+  # App Launcher Icon
+  flutter_launcher_icons: ^0.14.4
+
 flutter:
   uses-material-design: true
 
   assets:
+    # App Icon
+    - assets/icons/app_icon.png
+
+    # Wedding Invitation Assets
     - assets/invitations/
     - assets/invitations/lotus_royale/
     - assets/invitations/lotus_royale/backgrounds/
@@ -75,4 +81,21 @@ flutter:
     - assets/invitations/lotus_royale/frames/
     - assets/invitations/lotus_royale/icons/
     - assets/invitations/lotus_royale/preview/
-    
+
+
+# ============================================================
+# APP LAUNCHER ICON CONFIGURATION
+# ============================================================
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+
+  # Source icon
+  image_path: "assets/icons/app_icon.png"
+
+  # Android
+  min_sdk_android: 21
+
+  # iOS
+  remove_alpha_ios: true
