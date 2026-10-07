@@ -76,6 +76,8 @@ class AttendanceRecord {
   final String? checkOutPhotoPath;
 
   final int totalMinutes;
+  final int totalBreakMinutes;
+  final int breakCount;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -102,6 +104,8 @@ class AttendanceRecord {
     this.checkOutPhotoUrl,
     this.checkOutPhotoPath,
     this.totalMinutes = 0,
+    this.totalBreakMinutes = 0,
+    this.breakCount = 0,
     this.createdAt,
     this.updatedAt,
   });
@@ -135,6 +139,8 @@ class AttendanceRecord {
       checkOutPhotoUrl: _toNullableString(data['checkOutPhotoUrl']),
       checkOutPhotoPath: _toNullableString(data['checkOutPhotoPath']),
       totalMinutes: _toInt(data['totalMinutes']),
+      totalBreakMinutes: _toInt(data['totalBreakMinutes']),
+      breakCount: _toInt(data['breakCount']),
       createdAt: _toDateTime(data['createdAt']),
       updatedAt: _toDateTime(data['updatedAt']),
     );
@@ -163,6 +169,8 @@ class AttendanceRecord {
       'checkOutPhotoUrl': checkOutPhotoUrl,
       'checkOutPhotoPath': checkOutPhotoPath,
       'totalMinutes': totalMinutes,
+      'totalBreakMinutes': totalBreakMinutes,
+      'breakCount': breakCount,
       'createdAt': _timestamp(createdAt),
       'updatedAt': _timestamp(updatedAt),
     };
@@ -175,6 +183,13 @@ class AttendanceRecord {
     final hours = totalMinutes ~/ 60;
     final minutes = totalMinutes % 60;
     return '${hours}h ${minutes.toString().padLeft(2, '0')}m';
+  }
+
+  String get totalBreakLabel {
+    final hours = totalBreakMinutes ~/ 60;
+    final minutes = totalBreakMinutes % 60;
+    if (hours > 0) return '${hours}h ${minutes.toString().padLeft(2, '0')}m';
+    return '${minutes}m';
   }
 
   static Timestamp? _timestamp(DateTime? value) {

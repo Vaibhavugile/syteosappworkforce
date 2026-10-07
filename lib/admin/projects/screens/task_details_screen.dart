@@ -66,6 +66,30 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
 
 
   bool _actionLoading = false;
+  AppUser? _currentUser;
+  bool _userLoading = true;
+
+  bool get _isManagement => _currentUser?.isManagement == true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrentUser();
+  }
+
+  Future<void> _loadCurrentUser() async {
+    try {
+      final user = await _teamService.getCurrentUser();
+      if (!mounted) return;
+      setState(() {
+        _currentUser = user;
+        _userLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _userLoading = false);
+    }
+  }
 
 
 
@@ -971,212 +995,121 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
   }
 
   Widget _buildPrimaryActions(Task task) {
-
     final actions = <Widget>[];
 
-
-
     if (task.status == TaskStatus.todo ||
-
         task.status == TaskStatus.backlog ||
-
         task.status == TaskStatus.changesRequested) {
-
       actions.add(
-
         _actionButton(
-
           'Start Task',
-
           Icons.play_arrow_rounded,
-
           const Color(0xFF10B981),
-
-          () => _run('start task', () => _taskService.startTask(task.taskId)),
-
+          () => _run(
+            'start task',
+            () => _taskService.startTask(task.taskId),
+          ),
         ),
-
       );
-
     }
-
-
 
     if (task.status == TaskStatus.inProgress) {
-
       actions.add(
-
         _actionButton(
-
           'Update Progress',
-
           Icons.tune_rounded,
-
           const Color(0xFF6366F1),
-
           () => _showProgressEditor(task),
-
         ),
-
       );
 
-      actions.add(
-
-        _actionButton(
-
-          'Submit Review',
-
-          Icons.rate_review_outlined,
-
-          const Color(0xFF8B5CF6),
-
-          () => _run(
-
-            'submit task for review',
-
-            () => _taskService.submitForReview(task.taskId),
-
+      // Management only. Team members can reach 100% but do not submit review.
+      if (_isManagement) {
+        actions.add(
+          _actionButton(
+            'Submit Review',
+            Icons.rate_review_outlined,
+            const Color(0xFF8B5CF6),
+            () => _run(
+              'submit task for review',
+              () => _taskService.submitForReview(task.taskId),
+            ),
           ),
-
-        ),
-
-      );
+        );
+      }
 
       actions.add(
-
         _actionButton(
-
           'Block',
-
           Icons.block_rounded,
-
           const Color(0xFFEF4444),
-
           () => _run(
-
             'block task',
-
-            () => _taskService.blockTask(task.taskId, note: 'Task blocked from task actions.'),
-
+            () => _taskService.blockTask(
+              task.taskId,
+              note: 'Task blocked from task actions.',
+            ),
           ),
-
         ),
-
       );
-
     }
 
-
-
-    if (task.status == TaskStatus.inReview) {
-
+    // Approve / Request Changes are management-only.
+    if (task.status == TaskStatus.inReview && _isManagement) {
       actions.add(
-
         _actionButton(
-
           'Approve',
-
           Icons.verified_rounded,
-
           const Color(0xFF10B981),
-
           () => _run(
-
             'approve task',
-
             () => _taskService.approveTask(task.taskId),
-
           ),
-
         ),
-
       );
 
       actions.add(
-
         _actionButton(
-
           'Request Changes',
-
           Icons.edit_note_rounded,
-
           const Color(0xFFF59E0B),
-
           () => _showChangesDialog(task),
-
         ),
-
       );
-
     }
-
-
 
     if (task.status == TaskStatus.completed ||
-
         task.status == TaskStatus.cancelled) {
-
       actions.add(
-
         _actionButton(
-
           'Reopen',
-
           Icons.refresh_rounded,
-
           const Color(0xFF6366F1),
-
           () => _run(
-
             'reopen task',
-
             () => _taskService.reopenTask(task.taskId),
-
           ),
-
         ),
-
       );
-
     }
-
-
 
     if (actions.isEmpty) return const SizedBox.shrink();
 
-
-
     return _card(
-
       child: Column(
-
         crossAxisAlignment: CrossAxisAlignment.start,
-
         children: [
-
           _sectionHeader('Actions', Icons.bolt_rounded),
-
           const SizedBox(height: 13),
-
           Wrap(
-
             spacing: 9,
-
             runSpacing: 9,
-
             children: actions,
-
           ),
-
         ],
-
       ),
-
     );
-
   }
-
-
 
   Widget _buildTaskInformation(Task task) {
 
@@ -1695,116 +1628,126 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
 
 
   Future<void> _showActions(Task task) async {
-
     await showModalBottomSheet<void>(
-
       context: context,
-
       backgroundColor: Colors.transparent,
-
       builder: (sheetContext) {
-
         return _sheet(
-
           title: 'Task Actions',
-
-          subtitle: 'Manage this task.',
-
+          subtitle: _isManagement
+              ? 'Management actions and task controls.'
+              : 'Available task controls for your role.',
           child: Column(
-
             children: [
+              if (task.status == TaskStatus.todo ||
+                  task.status == TaskStatus.backlog ||
+                  task.status == TaskStatus.changesRequested)
+                _sheetAction(
+                  Icons.play_arrow_rounded,
+                  'Start Task',
+                  'Move the task into progress',
+                  const Color(0xFF10B981),
+                  () {
+                    Navigator.pop(sheetContext);
+                    _run(
+                      'start task',
+                      () => _taskService.startTask(task.taskId),
+                    );
+                  },
+                ),
+              if (task.status == TaskStatus.inProgress)
+                _sheetAction(
+                  Icons.tune_rounded,
+                  'Update Progress',
+                  'Update the current completion percentage',
+                  const Color(0xFF6366F1),
+                  () {
+                    Navigator.pop(sheetContext);
+                    _showProgressEditor(task);
+                  },
+                ),
+              if (task.status == TaskStatus.inProgress)
+                _sheetAction(
+                  Icons.block_rounded,
+                  'Block Task',
+                  'Mark the task as blocked',
+                  const Color(0xFFEF4444),
+                  () {
+                    Navigator.pop(sheetContext);
+                    _run(
+                      'block task',
+                      () => _taskService.blockTask(
+                        task.taskId,
+                        note: 'Task blocked from task actions.',
+                      ),
+                    );
+                  },
+                ),
 
-              _sheetAction(
+              // MANAGEMENT-ONLY REVIEW CONTROLS
+              if (_isManagement && task.status == TaskStatus.inProgress)
+                _sheetAction(
+                  Icons.rate_review_outlined,
+                  'Submit for Review',
+                  'Send the task into management review',
+                  const Color(0xFF8B5CF6),
+                  () {
+                    Navigator.pop(sheetContext);
+                    _run(
+                      'submit task for review',
+                      () => _taskService.submitForReview(task.taskId),
+                    );
+                  },
+                ),
 
-                Icons.play_arrow_rounded,
+              if (_isManagement && task.status == TaskStatus.inReview)
+                _sheetAction(
+                  Icons.verified_rounded,
+                  'Approve Task',
+                  'Approve the submitted work',
+                  const Color(0xFF10B981),
+                  () {
+                    Navigator.pop(sheetContext);
+                    _run(
+                      'approve task',
+                      () => _taskService.approveTask(task.taskId),
+                    );
+                  },
+                ),
 
-                'Start Task',
+              if (_isManagement && task.status == TaskStatus.inReview)
+                _sheetAction(
+                  Icons.edit_note_rounded,
+                  'Request Changes',
+                  'Send the task back with feedback',
+                  const Color(0xFFF59E0B),
+                  () {
+                    Navigator.pop(sheetContext);
+                    _showChangesDialog(task);
+                  },
+                ),
 
-                'Move the task into progress',
-
-                const Color(0xFF10B981),
-
-                () {
-
-                  Navigator.pop(sheetContext);
-
-                  _run(
-
-                    'start task',
-
-                    () => _taskService.startTask(task.taskId),
-
-                  );
-
-                },
-
-              ),
-
-              _sheetAction(
-
-                Icons.block_rounded,
-
-                'Block Task',
-
-                'Mark the task as blocked',
-
-                const Color(0xFFEF4444),
-
-                () {
-
-                  Navigator.pop(sheetContext);
-
-                  _run(
-
-                    'block task',
-
-                    () => _taskService.blockTask(task.taskId, note: 'Task blocked from task actions.'),
-
-                  );
-
-                },
-
-              ),
-
-              _sheetAction(
-
-                Icons.refresh_rounded,
-
-                'Reopen Task',
-
-                'Return the task to active work',
-
-                const Color(0xFF6366F1),
-
-                () {
-
-                  Navigator.pop(sheetContext);
-
-                  _run(
-
-                    'reopen task',
-
-                    () => _taskService.reopenTask(task.taskId),
-
-                  );
-
-                },
-
-              ),
-
+              if (task.status == TaskStatus.completed ||
+                  task.status == TaskStatus.cancelled)
+                _sheetAction(
+                  Icons.refresh_rounded,
+                  'Reopen Task',
+                  'Return the task to active work',
+                  const Color(0xFF6366F1),
+                  () {
+                    Navigator.pop(sheetContext);
+                    _run(
+                      'reopen task',
+                      () => _taskService.reopenTask(task.taskId),
+                    );
+                  },
+                ),
             ],
-
           ),
-
         );
-
       },
-
     );
-
   }
-
-
 
   Future<void> _run(
 

@@ -7,6 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/attendance_record.dart';
+import '../models/attendance_break.dart';
 import '../models/office_location.dart';
 import '../models/office_presence.dart';
 
@@ -25,6 +26,9 @@ class AttendanceService {
 
   CollectionReference<Map<String, dynamic>> get _attendanceCollection =>
       _firestore.collection('attendance');
+
+  CollectionReference<Map<String, dynamic>> get _breakCollection =>
+      _firestore.collection('attendanceBreaks');
 
   CollectionReference<Map<String, dynamic>> get _officeCollection =>
       _firestore.collection('officeLocations');
@@ -277,6 +281,8 @@ class AttendanceService {
       'checkOutPhotoPath': null,
 
       'totalMinutes': 0,
+      'totalBreakMinutes': 0,
+      'breakCount': 0,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
@@ -323,6 +329,13 @@ class AttendanceService {
       throw StateError('You have already checked out for today.');
     }
 
+    final activeBreak = await getActiveBreak();
+    if (activeBreak != null) {
+      throw StateError(
+        'Please end your ${activeBreak.displayLabel.toLowerCase()} before checking out.',
+      );
+    }
+
     final validation = await validateOfficeDistance(
       position: await getCurrentPosition(),
       officeId: officeId,
@@ -346,7 +359,18 @@ class AttendanceService {
 
     final now = DateTime.now();
     final checkIn = existing.checkInAt!;
-    final totalMinutes = now.difference(checkIn).inMinutes.clamp(0, 24 * 60);
+    final grossMinutes = now.difference(checkIn).inMinutes.clamp(0, 24 * 60);
+    final totalBreakMinutes =
+        await getTotalBreakMinutesForAttendance(existing.attendanceId);
+    final breakSnapshot = await _breakCollection
+        .where('attendanceId', isEqualTo: existing.attendanceId)
+        .get();
+    final completedBreakCount = breakSnapshot.docs
+        .map((doc) => AttendanceBreak.fromMap(doc.id, doc.data()))
+        .where((item) => !item.isActive)
+        .length;
+    final totalMinutes =
+        (grossMinutes - totalBreakMinutes).clamp(0, 24 * 60);
 
     final ref = _attendanceCollection.doc(existing.attendanceId);
 
@@ -361,6 +385,8 @@ class AttendanceService {
       'checkOutPhotoUrl': photo.downloadUrl,
       'checkOutPhotoPath': photo.storagePath,
       'totalMinutes': totalMinutes,
+      'totalBreakMinutes': totalBreakMinutes,
+      'breakCount': completedBreakCount,
       'updatedAt': FieldValue.serverTimestamp(),
     });
 
@@ -383,6 +409,216 @@ class AttendanceService {
       saved.id,
       saved.data()!,
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // BREAKS
+  // ---------------------------------------------------------------------------
+
+  Future<List<AttendanceBreak>> getTodayBreaks() async {
+    return getBreaksForDate(DateTime.now());
+  }
+
+  Future<List<AttendanceBreak>> getBreaksForAttendance(
+    String attendanceId,
+  ) async {
+    if (attendanceId.trim().isEmpty) {
+      throw ArgumentError('Attendance ID is required.');
+    }
+
+    final snapshot = await _breakCollection
+        .where('attendanceId', isEqualTo: attendanceId)
+        .get();
+
+    final items = snapshot.docs
+        .map((doc) => AttendanceBreak.fromMap(doc.id, doc.data()))
+        .toList();
+
+    items.sort((a, b) {
+      final aDate = a.startedAt ?? DateTime(2000);
+      final bDate = b.startedAt ?? DateTime(2000);
+      return aDate.compareTo(bDate);
+    });
+
+    return items;
+  }
+
+  Future<List<AttendanceBreak>> getBreaksForDate(DateTime date) async {
+    final uid = currentUserUid;
+    final attendanceId = attendanceIdFor(userId: uid, date: date);
+    final snapshot = await _breakCollection
+        .where('attendanceId', isEqualTo: attendanceId)
+        .get();
+
+    final items = snapshot.docs
+        .map((doc) => AttendanceBreak.fromMap(doc.id, doc.data()))
+        .toList();
+
+    items.sort((a, b) {
+      final aDate = a.startedAt ?? DateTime(2000);
+      final bDate = b.startedAt ?? DateTime(2000);
+      return bDate.compareTo(aDate);
+    });
+
+    return items;
+  }
+
+  Stream<List<AttendanceBreak>> watchTodayBreaks() {
+    final uid = currentUserUid;
+    final attendanceId = attendanceIdFor(userId: uid);
+
+    return _breakCollection
+        .where('attendanceId', isEqualTo: attendanceId)
+        .snapshots()
+        .map((snapshot) {
+      final items = snapshot.docs
+          .map((doc) => AttendanceBreak.fromMap(doc.id, doc.data()))
+          .toList();
+
+      items.sort((a, b) {
+        final aDate = a.startedAt ?? DateTime(2000);
+        final bDate = b.startedAt ?? DateTime(2000);
+        return bDate.compareTo(aDate);
+      });
+
+      return items;
+    });
+  }
+
+  Future<AttendanceBreak?> getActiveBreak() async {
+    final breaks = await getTodayBreaks();
+    for (final item in breaks) {
+      if (item.isActive) return item;
+    }
+    return null;
+  }
+
+  Stream<AttendanceBreak?> watchActiveBreak() {
+    return watchTodayBreaks().map((items) {
+      for (final item in items) {
+        if (item.isActive) return item;
+      }
+      return null;
+    });
+  }
+
+  Future<AttendanceBreak> startBreak({
+    required AttendanceBreakType type,
+    String? customLabel,
+    String? note,
+  }) async {
+    final uid = currentUserUid;
+    final attendance = await getTodayAttendance();
+
+    if (attendance == null || !attendance.isCheckedIn) {
+      throw StateError('You must check in before starting a break.');
+    }
+
+    if (attendance.isCheckedOut) {
+      throw StateError('You cannot start a break after checking out.');
+    }
+
+    final active = await getActiveBreak();
+    if (active != null) {
+      throw StateError('${active.displayLabel} is already running.');
+    }
+
+    final now = DateTime.now();
+    final breakId = _uuid.v4();
+
+    final ref = _breakCollection.doc(breakId);
+    await ref.set({
+      'attendanceId': attendance.attendanceId,
+      'userId': uid,
+      'date': attendance.date,
+      'type': type.value,
+      'customLabel': customLabel?.trim(),
+      'startedAt': Timestamp.fromDate(now),
+      'endedAt': null,
+      'durationMinutes': 0,
+      'note': note?.trim(),
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    final saved = await ref.get();
+    return AttendanceBreak.fromMap(saved.id, saved.data()!);
+  }
+
+  Future<AttendanceBreak> endBreak(String breakId) async {
+    final uid = currentUserUid;
+    final ref = _breakCollection.doc(breakId);
+    final snapshot = await ref.get();
+
+    if (!snapshot.exists || snapshot.data() == null) {
+      throw StateError('Break not found.');
+    }
+
+    final existing = AttendanceBreak.fromMap(
+      snapshot.id,
+      snapshot.data()!,
+    );
+
+    if (existing.userId != uid) {
+      throw StateError('You can only end your own break.');
+    }
+
+    if (!existing.isActive || existing.startedAt == null) {
+      throw StateError('This break is already completed.');
+    }
+
+    final now = DateTime.now();
+    final duration = now.difference(existing.startedAt!).inMinutes.clamp(0, 24 * 60);
+
+    await ref.update({
+      'endedAt': Timestamp.fromDate(now),
+      'durationMinutes': duration,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    // Keep the attendance document's break totals current.
+    await _syncBreakTotals(existing.attendanceId);
+
+    final saved = await ref.get();
+    return AttendanceBreak.fromMap(saved.id, saved.data()!);
+  }
+
+  Future<int> getTotalBreakMinutesForAttendance(String attendanceId) async {
+    final snapshot = await _breakCollection
+        .where('attendanceId', isEqualTo: attendanceId)
+        .get();
+
+    var total = 0;
+    for (final doc in snapshot.docs) {
+      final item = AttendanceBreak.fromMap(doc.id, doc.data());
+      if (!item.isActive) {
+        total += item.durationMinutes;
+      }
+    }
+    return total;
+  }
+
+  Future<void> _syncBreakTotals(String attendanceId) async {
+    final snapshot = await _breakCollection
+        .where('attendanceId', isEqualTo: attendanceId)
+        .get();
+
+    var totalBreakMinutes = 0;
+    var breakCount = 0;
+
+    for (final doc in snapshot.docs) {
+      final item = AttendanceBreak.fromMap(doc.id, doc.data());
+      if (!item.isActive) {
+        totalBreakMinutes += item.durationMinutes;
+        breakCount++;
+      }
+    }
+
+    await _attendanceCollection.doc(attendanceId).set({
+      'totalBreakMinutes': totalBreakMinutes,
+      'breakCount': breakCount,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 
   // ---------------------------------------------------------------------------
@@ -492,70 +728,6 @@ class AttendanceService {
           )
           .toList(),
     );
-  }
-
-
-  // ---------------------------------------------------------------------------
-  // ATTENDANCE HISTORY
-  // ---------------------------------------------------------------------------
-
-  Future<List<AttendanceRecord>> getMyAttendanceHistory({
-    required DateTime startDate,
-    required DateTime endDate,
-  }) async {
-    final userId = currentUserUid;
-
-    final start = dateKey(startDate);
-    final end = dateKey(endDate);
-
-    final snapshot = await _attendanceCollection
-        .where('userId', isEqualTo: userId)
-        .where('date', isGreaterThanOrEqualTo: start)
-        .where('date', isLessThanOrEqualTo: end)
-        .get();
-
-    final records = snapshot.docs
-        .map(
-          (doc) => AttendanceRecord.fromMap(
-            doc.id,
-            doc.data(),
-          ),
-        )
-        .toList();
-
-    records.sort((a, b) => b.date.compareTo(a.date));
-    return records;
-  }
-
-  Future<List<AttendanceRecord>> getAttendanceHistoryForManagement({
-    required DateTime startDate,
-    required DateTime endDate,
-  }) async {
-    final start = dateKey(startDate);
-    final end = dateKey(endDate);
-
-    final snapshot = await _attendanceCollection
-        .where('date', isGreaterThanOrEqualTo: start)
-        .where('date', isLessThanOrEqualTo: end)
-        .get();
-
-    final records = snapshot.docs
-        .map(
-          (doc) => AttendanceRecord.fromMap(
-            doc.id,
-            doc.data(),
-          ),
-        )
-        .toList();
-
-    records.sort((a, b) {
-      final dateCompare = b.date.compareTo(a.date);
-      if (dateCompare != 0) return dateCompare;
-      return (a.checkInAt ?? DateTime(2000))
-          .compareTo(b.checkInAt ?? DateTime(2000));
-    });
-
-    return records;
   }
 
   Future<List<AttendanceRecord>> getAttendanceForDateForManagement(

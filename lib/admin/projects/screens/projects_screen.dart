@@ -2036,14 +2036,14 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
 
 
 
-  void _openProject(Project project) {
-
-    // Project details screen will be connected
-
-    // in the next step.
-
-    _showProjectPreview(project);
-
+  Future<void> _openProject(Project project) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ProjectDetailsScreen(
+          projectId: project.projectId,
+        ),
+      ),
+    );
   }
 
 
@@ -2411,11 +2411,8 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                     child: OutlinedButton.icon(
 
                       onPressed: () {
-
-                        Navigator.of(context)
-
-                            .pop();
-
+                        Navigator.of(context).pop();
+                        Future<void>.microtask(() => _openProject(project));
                       },
 
                       icon: const Icon(
@@ -2820,87 +2817,36 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
 
 
 
+  Future<void> _createProject() async {
+    final projectId = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) => const CreateProjectScreen(),
+      ),
+    );
+
+    if (!mounted) return;
+
+    if (projectId != null && projectId.isNotEmpty) {
+      _showSnack('Project created successfully.');
+    }
+  }
+
   Widget _buildFloatingActionButton() {
-
     return FloatingActionButton.extended(
-
-      onPressed: _createProjectPlaceholder,
-
+      onPressed: _createProject,
       backgroundColor: const Color(0xFF4F46E5),
-
       foregroundColor: Colors.white,
-
       elevation: 5,
-
-      icon: const Icon(
-
-        Icons.add_rounded,
-
-      ),
-
+      icon: const Icon(Icons.add_rounded),
       label: Text(
-
         'New Project',
-
         style: GoogleFonts.manrope(
-
           fontSize: 12,
-
           fontWeight: FontWeight.w800,
-
         ),
-
       ),
-
     );
-
   }
-
-
-
-  void _createProjectPlaceholder() {
-
-    ScaffoldMessenger.of(context).showSnackBar(
-
-      SnackBar(
-
-        behavior: SnackBarBehavior.floating,
-
-        backgroundColor:
-
-            const Color(0xFF111827),
-
-        shape: RoundedRectangleBorder(
-
-          borderRadius: BorderRadius.circular(12),
-
-        ),
-
-        content: Text(
-
-          'Project creation screen is coming next.',
-
-          style: GoogleFonts.manrope(
-
-            fontSize: 12,
-
-            fontWeight: FontWeight.w700,
-
-            color: Colors.white,
-
-          ),
-
-        ),
-
-      ),
-
-    );
-
-  }
-
-
-
-  // ============================================================
 
   // EMPTY
 

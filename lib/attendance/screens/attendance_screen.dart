@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import '../models/attendance_record.dart';
+import '../models/attendance_break.dart';
 import '../services/attendance_service.dart';
 import 'attendance_history_screen.dart';
 
@@ -31,6 +32,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
   AttendanceRecord? _attendance;
   File? _selectedPhoto;
+  List<AttendanceBreak> _breaks = <AttendanceBreak>[];
+  AttendanceBreak? _activeBreak;
 
   bool _loading = true;
   bool _gettingLocation = false;
@@ -70,8 +73,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
       if (!mounted) return;
 
+      final breaks = await _attendanceService.getTodayBreaks();
+
+      if (!mounted) return;
+
       setState(() {
         _attendance = attendance;
+        _breaks = breaks;
+        _activeBreak = _findActiveBreak(breaks);
       });
 
       await _refreshLocation(showMessages: false);
@@ -212,6 +221,13 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   Future<void> _submitAttendance() async {
     if (_saving) return;
 
+    if (_activeBreak != null) {
+      _showError(
+        'Please end your ${_activeBreak!.displayLabel.toLowerCase()} before checking out.',
+      );
+      return;
+    }
+
     final attendance = _attendance;
     final isCheckIn = attendance == null || !attendance.isCheckedIn;
     final isCheckOut =
@@ -286,6 +302,626 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     }
   }
 
+
+  AttendanceBreak? _findActiveBreak(List<AttendanceBreak> breaks) {
+    for (final item in breaks) {
+      if (item.isActive) return item;
+    }
+    return null;
+  }
+
+  bool get _canStartBreak {
+    return _attendance?.isCheckedIn == true &&
+        _attendance?.isCheckedOut != true &&
+        !_saving;
+  }
+
+  Future<void> _reloadBreaks() async {
+    try {
+      final breaks = await _attendanceService.getTodayBreaks();
+      if (!mounted) return;
+      setState(() {
+        _breaks = breaks;
+        _activeBreak = _findActiveBreak(breaks);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      _showError(_friendlyError(e));
+    }
+  }
+
+  Future<void> _openBreakPicker() async {
+    if (!_canStartBreak) {
+      _showError('You must be checked in and not checked out to start a break.');
+      return;
+    }
+
+    AttendanceBreakType selected = AttendanceBreakType.lunch;
+    final customController = TextEditingController();
+    final noteController = TextEditingController();
+
+    final shouldStart = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final isOther = selected == AttendanceBreakType.other;
+
+            return SafeArea(
+              top: false,
+              child: Container(
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  12,
+                  20,
+                  20 + MediaQuery.of(context).viewInsets.bottom,
+                ),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(
+                    top: Radius.circular(28),
+                  ),
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 42,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: _border,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      const Text(
+                        'Start a Break',
+                        style: TextStyle(
+                          color: _text,
+                          fontSize: 21,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      const Text(
+                        'Choose the type of break you are taking.',
+                        style: TextStyle(
+                          color: _muted,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      Wrap(
+                        spacing: 9,
+                        runSpacing: 9,
+                        children: AttendanceBreakType.values.map((type) {
+                          final active = selected == type;
+                          return InkWell(
+                            onTap: () {
+                              setSheetState(() => selected = type);
+                            },
+                            borderRadius: BorderRadius.circular(14),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 160),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: active
+                                    ? _primary.withOpacity(.10)
+                                    : _background,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: active ? _primary : _border,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    _breakIcon(type),
+                                    size: 17,
+                                    color: active ? _primary : _muted,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    type.label,
+                                    style: TextStyle(
+                                      color: active ? _primary : _text,
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      if (isOther) ...[
+                        const SizedBox(height: 14),
+                        TextField(
+                          controller: customController,
+                          textCapitalization: TextCapitalization.words,
+                          decoration: InputDecoration(
+                            labelText: 'Break name',
+                            hintText: 'e.g. Client call break',
+                            filled: true,
+                            fillColor: _background,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(15),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 14),
+                      TextField(
+                        controller: noteController,
+                        maxLines: 2,
+                        decoration: InputDecoration(
+                          labelText: 'Note (optional)',
+                          hintText: 'Add a short note',
+                          filled: true,
+                          fillColor: _background,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(15),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            if (isOther &&
+                                customController.text.trim().isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Enter a name for this break.'),
+                                ),
+                              );
+                              return;
+                            }
+                            Navigator.pop(sheetContext, true);
+                          },
+                          icon: const Icon(Icons.play_arrow_rounded),
+                          label: const Text(
+                            'START BREAK',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: .5,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _primary,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (shouldStart != true) {
+      customController.dispose();
+      noteController.dispose();
+      return;
+    }
+
+    try {
+      setState(() => _saving = true);
+      final started = await _attendanceService.startBreak(
+        type: selected,
+        customLabel: selected == AttendanceBreakType.other
+            ? customController.text.trim()
+            : null,
+        note: noteController.text.trim().isEmpty
+            ? null
+            : noteController.text.trim(),
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _breaks = [started, ..._breaks];
+        _activeBreak = started;
+      });
+
+      _showSuccess('${started.displayLabel} started.');
+    } catch (e) {
+      if (mounted) {
+        _showError(_friendlyError(e));
+      }
+    } finally {
+      customController.dispose();
+      noteController.dispose();
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
+  }
+
+  Future<void> _endBreak() async {
+    final active = _activeBreak;
+    if (active == null || _saving) return;
+
+    setState(() => _saving = true);
+
+    try {
+      final ended = await _attendanceService.endBreak(active.breakId);
+      if (!mounted) return;
+
+      setState(() {
+        _breaks = _breaks
+            .map((item) => item.breakId == ended.breakId ? ended : item)
+            .toList();
+        _activeBreak = null;
+      });
+
+      _showSuccess(
+        '${ended.displayLabel} ended • ${ended.durationLabel}.',
+      );
+    } catch (e) {
+      if (mounted) {
+        _showError(_friendlyError(e));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
+  }
+
+  IconData _breakIcon(AttendanceBreakType type) {
+    switch (type) {
+      case AttendanceBreakType.lunch:
+        return Icons.restaurant_rounded;
+      case AttendanceBreakType.tea:
+        return Icons.emoji_food_beverage_rounded;
+      case AttendanceBreakType.coffee:
+        return Icons.coffee_rounded;
+      case AttendanceBreakType.shortBreak:
+        return Icons.free_breakfast_rounded;
+      case AttendanceBreakType.personal:
+        return Icons.person_outline_rounded;
+      case AttendanceBreakType.prayer:
+        return Icons.self_improvement_rounded;
+      case AttendanceBreakType.meeting:
+        return Icons.groups_rounded;
+      case AttendanceBreakType.medical:
+        return Icons.medical_services_outlined;
+      case AttendanceBreakType.other:
+        return Icons.more_horiz_rounded;
+    }
+  }
+
+  Color _breakColor(AttendanceBreakType type) {
+    switch (type) {
+      case AttendanceBreakType.lunch:
+        return const Color(0xFF10B981);
+      case AttendanceBreakType.tea:
+        return const Color(0xFFF59E0B);
+      case AttendanceBreakType.coffee:
+        return const Color(0xFF92400E);
+      case AttendanceBreakType.shortBreak:
+        return const Color(0xFF6366F1);
+      case AttendanceBreakType.personal:
+        return const Color(0xFF8B5CF6);
+      case AttendanceBreakType.prayer:
+        return const Color(0xFF0EA5E9);
+      case AttendanceBreakType.meeting:
+        return const Color(0xFF2563EB);
+      case AttendanceBreakType.medical:
+        return const Color(0xFFEF4444);
+      case AttendanceBreakType.other:
+        return const Color(0xFF64748B);
+    }
+  }
+
+  Widget _buildBreaksCard() {
+    final active = _activeBreak;
+
+    return _card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _iconBox(
+                active == null
+                    ? Icons.free_breakfast_outlined
+                    : _breakIcon(active.type),
+                active == null ? _orange : _breakColor(active.type),
+              ),
+              const SizedBox(width: 13),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Breaks',
+                      style: TextStyle(
+                        color: _text,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    SizedBox(height: 3),
+                    Text(
+                      'Track lunch, tea, coffee and other breaks.',
+                      style: TextStyle(
+                        color: _muted,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (_canStartBreak && active == null)
+                TextButton.icon(
+                  onPressed: _saving ? null : _openBreakPicker,
+                  icon: const Icon(Icons.add_rounded, size: 17),
+                  label: const Text(
+                    'Break',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          if (active != null)
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: _orange.withOpacity(.07),
+                borderRadius: BorderRadius.circular(17),
+                border: Border.all(color: _orange.withOpacity(.16)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: _orange.withOpacity(.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      _breakIcon(active.type),
+                      color: _orange,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 11),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          active.displayLabel,
+                          style: const TextStyle(
+                            color: _text,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          'Started ${active.startedAt == null ? '--' : DateFormat('hh:mm a').format(active.startedAt!)} • Running',
+                          style: const TextStyle(
+                            color: _muted,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  OutlinedButton(
+                    onPressed: _saving ? null : _endBreak,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: _orange,
+                      side: BorderSide(color: _orange.withOpacity(.35)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text(
+                      'END',
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else if (_breaks.isEmpty)
+            _emptyBreaks()
+          else
+            ..._breaks.take(5).map(_breakRow),
+          if (_breaks.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const Icon(
+                  Icons.timer_outlined,
+                  size: 15,
+                  color: _muted,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Break time: ${_formatMinutes(_breaks.fold<int>(0, (sum, item) => sum + item.durationMinutes))}',
+                  style: const TextStyle(
+                    color: _muted,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  '${_breaks.length} break${_breaks.length == 1 ? '' : 's'}',
+                  style: const TextStyle(
+                    color: _primary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _emptyBreaks() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 14,
+        vertical: 17,
+      ),
+      decoration: BoxDecoration(
+        color: _background,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: _border),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.free_breakfast_outlined, color: _muted),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'No breaks recorded',
+                  style: TextStyle(
+                    color: _text,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                SizedBox(height: 3),
+                Text(
+                  'Start a break whenever you need one.',
+                  style: TextStyle(
+                    color: _muted,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _breakRow(AttendanceBreak item) {
+    final color = _breakColor(item.type);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _background,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _border),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: color.withOpacity(.10),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              _breakIcon(item.type),
+              color: color,
+              size: 17,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.displayLabel,
+                  style: const TextStyle(
+                    color: _text,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  item.startedAt == null
+                      ? 'Not recorded'
+                      : '${DateFormat('hh:mm a').format(item.startedAt!)}'
+                          '${item.endedAt == null ? ' • Running' : ' - ${DateFormat('hh:mm a').format(item.endedAt!)}'}',
+                  style: const TextStyle(
+                    color: _muted,
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            item.durationLabel,
+            style: TextStyle(
+              color: color,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatMinutes(int minutes) {
+    final hours = minutes ~/ 60;
+    final mins = minutes % 60;
+    if (hours > 0) return '${hours}h ${mins}m';
+    return '${mins}m';
+  }
+
   bool get _canCheckIn {
     final attendance = _attendance;
     return attendance == null || !attendance.isCheckedIn;
@@ -295,7 +931,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     final attendance = _attendance;
     return attendance != null &&
         attendance.isCheckedIn &&
-        !attendance.isCheckedOut;
+        !attendance.isCheckedOut &&
+        _activeBreak == null;
   }
 
   bool get _completed {
@@ -308,6 +945,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   String get _primaryActionLabel {
     if (_saving) return 'Saving...';
     if (_canCheckIn) return 'CHECK IN';
+    if (_activeBreak != null) return 'END BREAK TO CHECK OUT';
     if (_canCheckOut) return 'CHECK OUT';
     return 'ATTENDANCE COMPLETED';
   }
@@ -358,6 +996,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                       _buildStatusCard(),
                       const SizedBox(height: 16),
                       _buildLocationCard(),
+                      const SizedBox(height: 16),
+                      _buildBreaksCard(),
                       const SizedBox(height: 16),
                       if (!_completed) ...[
                         _buildPhotoCard(),
@@ -473,6 +1113,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       icon = Icons.verified_rounded;
       title = 'Attendance completed';
       subtitle = 'You have checked in and checked out today.';
+    } else if (_activeBreak != null) {
+      color = _orange;
+      icon = Icons.free_breakfast_rounded;
+      title = '${_activeBreak!.displayLabel} is active';
+      subtitle = 'End your break before checking out.';
     } else if (_canCheckOut) {
       color = _green;
       icon = Icons.login_rounded;
@@ -1202,13 +1847,24 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 Text(
                   attendance == null
                       ? ''
-                      : 'Total working time: ${attendance.totalHoursLabel}',
+                      : 'Net working time: ${attendance.totalHoursLabel}',
                   style: const TextStyle(
                     color: _muted,
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
+                if (attendance != null && attendance.totalBreakMinutes > 0) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    'Break time: ${attendance.totalBreakLabel} • ${attendance.breakCount} break${attendance.breakCount == 1 ? '' : 's'}',
+                    style: const TextStyle(
+                      color: _muted,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

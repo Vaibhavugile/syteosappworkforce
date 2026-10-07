@@ -53,9 +53,12 @@ import '../../admin/team/screens/team_screen.dart';
 import '../../team/my_work/screens/my_work_screen.dart';
 
 import '../../team/daily_work/screens/daily_work_screen.dart';
+import '../../team/daily_work/screens/my_daily_work_history_screen.dart';
 
 import '../../team/daily_work/screens/team_daily_work_screen.dart';
 import '../../attendance/screens/attendance_screen.dart';
+import '../../auth/login_screen.dart';
+import '../../auth/services/auth_service.dart';
 
 
 
@@ -583,6 +586,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
 
 
+        IconButton(
+          tooltip: 'Logout',
+          onPressed: _logout,
+          icon: const Icon(
+            Icons.logout_rounded,
+            color: _text,
+            size: 21,
+          ),
+        ),
+
+
+
         Padding(
 
 
@@ -972,6 +987,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 const SizedBox(height: 12),
 
                 _buildTeamMemberDailyWorkAction(),
+
+                const SizedBox(height: 12),
+
+                _buildTeamMemberDailyWorkHistoryAction(),
 
                 const SizedBox(height: 18),
 
@@ -1530,6 +1549,78 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
 
+
+  Widget _buildTeamMemberDailyWorkHistoryAction() {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: _openMyDailyWorkHistory,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.all(15),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: _border),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(.025),
+                blurRadius: 16,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: _primary.withOpacity(.09),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.history_rounded,
+                  color: _primary,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'My Work History',
+                      style: TextStyle(
+                        color: _text,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    SizedBox(height: 3),
+                    Text(
+                      'View your submitted daily work and proof.',
+                      style: TextStyle(
+                        color: _muted,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 13,
+                color: _muted,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _buildTeamMemberTaskStats({
 
@@ -3802,6 +3893,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _isManagement ? _openTeamDailyWork : _openDailyWork,
 
       ),
+      if (!_isManagement)
+        _DashboardAction(
+
+          'Work History',
+
+          'View your submitted work',
+
+          Icons.history_rounded,
+
+          _primary,
+
+          _openMyDailyWorkHistory,
+
+        ),
       _DashboardAction(
   'Wedding Invitation',
   'Create & preview',
@@ -7360,6 +7465,55 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
 
 
+  Future<void> _logout() async {
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
+          title: const Text(
+            'Logout?',
+            style: TextStyle(fontWeight: FontWeight.w900),
+          ),
+          content: const Text(
+            'Are you sure you want to logout from Syteos Business?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: FilledButton.styleFrom(
+                backgroundColor: _red,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Logout'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldLogout != true || !mounted) return;
+
+    try {
+      await AuthService.instance.signOut();
+    } catch (_) {}
+
+    if (!mounted) return;
+
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (route) => false,
+    );
+  }
+
+
+
   void _openAttendance() {
 
     Navigator.of(context).push(
@@ -7447,6 +7601,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
       MaterialPageRoute(
 
         builder: (_) => const DailyWorkScreen(),
+
+      ),
+
+    );
+
+  }
+
+  Future<void> _openMyDailyWorkHistory() async {
+
+    await Navigator.of(context).push(
+
+      MaterialPageRoute(
+
+        builder: (_) => const MyDailyWorkHistoryScreen(),
 
       ),
 

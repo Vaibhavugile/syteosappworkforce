@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../models/app_user.dart';
 import '../../services/team_service.dart';
 import '../models/attendance_record.dart';
+import '../models/attendance_break.dart';
 import '../services/attendance_service.dart';
 
 class AttendanceHistoryScreen extends StatefulWidget {
@@ -235,6 +236,9 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
 
   int get _totalMinutes =>
       _visibleRecords.fold(0, (sum, record) => sum + record.totalMinutes);
+
+  int get _totalBreakMinutes =>
+      _visibleRecords.fold(0, (sum, record) => sum + record.totalBreakMinutes);
 
   int get _workingDays =>
       _visibleRecords.where((r) => r.checkInAt != null).length;
@@ -470,7 +474,7 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
             color: _green,
           ),
         ),
-        const SizedBox(width: 9),
+        const SizedBox(width: 7),
         Expanded(
           child: _summaryCard(
             icon: Icons.schedule_rounded,
@@ -479,7 +483,16 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
             color: _blue,
           ),
         ),
-        const SizedBox(width: 9),
+        const SizedBox(width: 7),
+        Expanded(
+          child: _summaryCard(
+            icon: Icons.free_breakfast_rounded,
+            label: 'Breaks',
+            value: _durationLabel(_totalBreakMinutes),
+            color: _orange,
+          ),
+        ),
+        const SizedBox(width: 7),
         Expanded(
           child: _summaryCard(
             icon: Icons.timer_outlined,
@@ -824,6 +837,21 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
                               ? record.totalHoursLabel
                               : '—',
                           color: _primary,
+                        ),
+                      ),
+                      Container(
+                        width: 1,
+                        height: 34,
+                        color: _border,
+                      ),
+                      Expanded(
+                        child: _timelineMetric(
+                          icon: Icons.free_breakfast_rounded,
+                          label: 'Break',
+                          value: record.totalBreakMinutes > 0
+                              ? _durationLabel(record.totalBreakMinutes)
+                              : '—',
+                          color: _orange,
                         ),
                       ),
                     ],
@@ -1295,7 +1323,7 @@ class _EmployeePickerSheet extends StatelessWidget {
   }
 }
 
-class _AttendanceDetailsSheet extends StatelessWidget {
+class _AttendanceDetailsSheet extends StatefulWidget {
   final AttendanceRecord record;
   final AppUser? employee;
   final bool isManagement;
@@ -1307,9 +1335,42 @@ class _AttendanceDetailsSheet extends StatelessWidget {
   });
 
   @override
+  State<_AttendanceDetailsSheet> createState() =>
+      _AttendanceDetailsSheetState();
+}
+
+class _AttendanceDetailsSheetState extends State<_AttendanceDetailsSheet> {
+  final AttendanceService _attendanceService = AttendanceService.instance;
+  late Future<List<AttendanceBreak>> _breaksFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _breaksFuture = _loadBreaks();
+  }
+
+  Future<List<AttendanceBreak>> _loadBreaks() async {
+    final parts = widget.record.date.split('-');
+    final date = parts.length == 3
+        ? DateTime(
+            int.tryParse(parts[0]) ?? DateTime.now().year,
+            int.tryParse(parts[1]) ?? DateTime.now().month,
+            int.tryParse(parts[2]) ?? DateTime.now().day,
+          )
+        : DateTime.now();
+
+    return _attendanceService.getBreaksForAttendance(
+      widget.record.attendanceId,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final date = _parseDate(record.date);
-    final hasCheckout = record.checkOutAt != null;
+    final record = widget.record;
+    final widget.employee = widget.employee;
+    final widget.isManagement = widget.isManagement;
+    final date = _parseDate(widget.record.date);
+    final hasCheckout = widget.record.checkOutAt != null;
 
     return SafeArea(
       child: Container(
@@ -1352,8 +1413,8 @@ class _AttendanceDetailsSheet extends StatelessWidget {
                     ),
                     alignment: Alignment.center,
                     child: Text(
-                      (employee?.name.trim().isNotEmpty ?? false)
-                          ? employee!.name.trim()[0].toUpperCase()
+                      (widget.employee?.name.trim().isNotEmpty ?? false)
+                          ? widget.employee!.name.trim()[0].toUpperCase()
                           : 'A',
                       style: const TextStyle(
                         color: Colors.white,
@@ -1368,8 +1429,8 @@ class _AttendanceDetailsSheet extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isManagement
-                              ? (employee?.name ?? 'Employee')
+                          widget.isManagement
+                              ? (widget.employee?.name ?? 'Employee')
                               : 'My Attendance',
                           style: const TextStyle(
                             color: Color(0xFF171923),
@@ -1413,7 +1474,7 @@ class _AttendanceDetailsSheet extends StatelessWidget {
                       child: _bigMetric(
                         icon: Icons.login_rounded,
                         label: 'CHECK IN',
-                        value: _time(record.checkInAt),
+                        value: _time(widget.record.checkInAt),
                         color: const Color(0xFF10B981),
                       ),
                     ),
@@ -1426,7 +1487,7 @@ class _AttendanceDetailsSheet extends StatelessWidget {
                       child: _bigMetric(
                         icon: Icons.logout_rounded,
                         label: 'CHECK OUT',
-                        value: _time(record.checkOutAt),
+                        value: _time(widget.record.checkOutAt),
                         color: const Color(0xFF2563EB),
                       ),
                     ),
@@ -1439,8 +1500,8 @@ class _AttendanceDetailsSheet extends StatelessWidget {
                       child: _bigMetric(
                         icon: Icons.timer_outlined,
                         label: 'TOTAL',
-                        value: record.totalMinutes > 0
-                            ? record.totalHoursLabel
+                        value: widget.record.totalMinutes > 0
+                            ? widget.record.totalHoursLabel
                             : '—',
                         color: const Color(0xFF6366F1),
                       ),
@@ -1449,41 +1510,43 @@ class _AttendanceDetailsSheet extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 18),
+              _buildBreaksSection(),
+              const SizedBox(height: 18),
               _sectionTitle('Location verification'),
               const SizedBox(height: 9),
               _locationCard(
                 title: 'Check-in location',
-                address: record.checkInAddress,
-                distance: record.checkInDistanceMeters,
-                accuracy: record.checkInAccuracy,
-                latitude: record.checkInLatitude,
-                longitude: record.checkInLongitude,
+                address: widget.record.checkInAddress,
+                distance: widget.record.checkInDistanceMeters,
+                accuracy: widget.record.checkInAccuracy,
+                latitude: widget.record.checkInLatitude,
+                longitude: widget.record.checkInLongitude,
                 color: const Color(0xFF10B981),
-                photoUrl: record.checkInPhotoUrl,
-                onPhoto: record.checkInPhotoUrl == null
+                photoUrl: widget.record.checkInPhotoUrl,
+                onPhoto: widget.record.checkInPhotoUrl == null
                     ? null
                     : () => _showPhoto(
                           context,
-                          record.checkInPhotoUrl!,
+                          widget.record.checkInPhotoUrl!,
                           'Check-in photo',
                         ),
               ),
-              if (record.checkOutAt != null) ...[
+              if (widget.record.checkOutAt != null) ...[
                 const SizedBox(height: 9),
                 _locationCard(
                   title: 'Check-out location',
-                  address: record.checkOutAddress,
-                  distance: record.checkOutDistanceMeters,
-                  accuracy: record.checkOutAccuracy,
-                  latitude: record.checkOutLatitude,
-                  longitude: record.checkOutLongitude,
+                  address: widget.record.checkOutAddress,
+                  distance: widget.record.checkOutDistanceMeters,
+                  accuracy: widget.record.checkOutAccuracy,
+                  latitude: widget.record.checkOutLatitude,
+                  longitude: widget.record.checkOutLongitude,
                   color: const Color(0xFF2563EB),
-                  photoUrl: record.checkOutPhotoUrl,
-                  onPhoto: record.checkOutPhotoUrl == null
+                  photoUrl: widget.record.checkOutPhotoUrl,
+                  onPhoto: widget.record.checkOutPhotoUrl == null
                       ? null
                       : () => _showPhoto(
                             context,
-                            record.checkOutPhotoUrl!,
+                            widget.record.checkOutPhotoUrl!,
                             'Check-out photo',
                           ),
                 ),
@@ -1493,6 +1556,258 @@ class _AttendanceDetailsSheet extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Widget _buildBreaksSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionTitle('Break history'),
+        const SizedBox(height: 9),
+        FutureBuilder<List<AttendanceBreak>>(
+          future: _breaksFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8F9FC),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE7E9F2)),
+                ),
+                child: const Center(
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Color(0xFF6366F1),
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            if (snapshot.hasError) {
+              return _breakInfoCard(
+                icon: Icons.error_outline_rounded,
+                title: 'Break history unavailable',
+                subtitle: 'Unable to load break details for this attendance.',
+                color: const Color(0xFFEF4444),
+              );
+            }
+
+            final breaks = snapshot.data ?? const <AttendanceBreak>[];
+
+            if (breaks.isEmpty) {
+              return _breakInfoCard(
+                icon: Icons.free_breakfast_outlined,
+                title: 'No breaks recorded',
+                subtitle: 'No lunch, tea, personal or other breaks were recorded.',
+                color: const Color(0xFF9CA3AF),
+              );
+            }
+
+            return Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFE7E9F2)),
+              ),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(13, 12, 13, 9),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.pause_circle_outline_rounded,
+                          color: Color(0xFFF59E0B),
+                          size: 18,
+                        ),
+                        const SizedBox(width: 7),
+                        const Expanded(
+                          child: Text(
+                            'Breaks taken',
+                            style: TextStyle(
+                              color: Color(0xFF171923),
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '${breaks.length} ${breaks.length == 1 ? 'break' : 'breaks'} • ${_durationLabel(breaks.fold<int>(0, (sum, item) => sum + item.durationMinutes))}',
+                          style: const TextStyle(
+                            color: Color(0xFF73778A),
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  ...List.generate(breaks.length, (index) {
+                    final item = breaks[index];
+                    return Column(
+                      children: [
+                        if (index > 0)
+                          const Divider(
+                            height: 1,
+                            color: Color(0xFFE7E9F2),
+                          ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(13, 11, 13, 11),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFFF7E8),
+                                  borderRadius: BorderRadius.circular(11),
+                                ),
+                                child: Icon(
+                                  _breakIcon(item.type),
+                                  color: const Color(0xFFF59E0B),
+                                  size: 18,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      item.displayLabel,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: Color(0xFF171923),
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      '${_time(item.startedAt)} - ${_time(item.endedAt)}'
+                                      '${item.note?.trim().isNotEmpty == true ? ' • ${item.note!.trim()}' : ''}',
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: Color(0xFF73778A),
+                                        fontSize: 9,
+                                        height: 1.35,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                item.durationLabel,
+                                style: const TextStyle(
+                                  color: Color(0xFFB45309),
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  }),
+                ],
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _breakInfoCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F9FC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE7E9F2)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 22),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Color(0xFF171923),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    color: Color(0xFF73778A),
+                    fontSize: 9,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _breakIcon(AttendanceBreakType type) {
+    switch (type) {
+      case AttendanceBreakType.lunch:
+        return Icons.restaurant_rounded;
+      case AttendanceBreakType.tea:
+        return Icons.local_cafe_rounded;
+      case AttendanceBreakType.coffee:
+        return Icons.coffee_rounded;
+      case AttendanceBreakType.shortBreak:
+        return Icons.coffee_outlined;
+      case AttendanceBreakType.personal:
+        return Icons.person_outline_rounded;
+      case AttendanceBreakType.prayer:
+        return Icons.self_improvement_rounded;
+      case AttendanceBreakType.meeting:
+        return Icons.groups_rounded;
+      case AttendanceBreakType.medical:
+        return Icons.medical_services_outlined;
+      case AttendanceBreakType.other:
+        return Icons.more_horiz_rounded;
+    }
+  }
+
+  String _durationLabel(int minutes) {
+    if (minutes <= 0) return '0m';
+    final hours = minutes ~/ 60;
+    final mins = minutes % 60;
+    if (hours > 0) {
+      return '${hours}h ${mins.toString().padLeft(2, '0')}m';
+    }
+    return '${mins}m';
   }
 
   Widget _locationCard({
