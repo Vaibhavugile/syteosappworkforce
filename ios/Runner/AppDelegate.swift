@@ -1,6 +1,5 @@
 import UIKit
 import Flutter
-import FirebaseCore
 import GoogleMaps
 
 @main
@@ -10,14 +9,6 @@ import GoogleMaps
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-
-    // ============================================================
-    // FIREBASE
-    // ============================================================
-
-    if FirebaseApp.app() == nil {
-      FirebaseApp.configure()
-    }
 
     // ============================================================
     // GOOGLE MAPS
